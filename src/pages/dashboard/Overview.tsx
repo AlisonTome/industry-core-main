@@ -46,7 +46,6 @@ export default function Overview() {
           <h1 className="text-2xl font-bold text-foreground">Olá, {user?.name.split(" ")[0]}</h1>
           <p className="text-sm text-muted-foreground">{isSupplier ? "Resumo comercial e financeiro da sua operação" : "Resumo de projetos, RFQs e propostas recebidas"}</p>
         </div>
-        {!isSupplier && <Link to="/dashboard/cotacoes?new=1"><Button variant="accent" size="sm">Nova RFQ</Button></Link>}
       </div>
 
       <section className="mb-8">

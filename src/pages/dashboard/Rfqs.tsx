@@ -92,7 +92,6 @@ export default function Rfqs() {
       <PageHeader
         title={selectedProject ? `RFQs - ${selectedProject.name}` : isSupplier ? "RFQs abertas" : "Cotações (RFQ)"}
         description={selectedProject ? `${selectedProject.id} · ${filtered.length} RFQ${filtered.length === 1 ? "" : "s"} vinculada${filtered.length === 1 ? "" : "s"} ao projeto.` : isSupplier ? "Consulte solicitações compatíveis e envie propostas técnicas." : "Crie, acompanhe e adjudique solicitações de cotação."}
-        actions={!isSupplier && <Button variant="accent" onClick={() => setOpen(true)}>Nova RFQ</Button>}
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
