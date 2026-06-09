@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight, ArrowDownRight, FileText, Package, FileSignature, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLocal, K, Rfq, Proposal, Contract, Notification } from "@/lib/store";
+import { useLocal, K, Rfq, Proposal, Contract, Notification, visibleNotificationsForUser, visibleRfqsForUser } from "@/lib/store";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -12,11 +12,15 @@ export default function Overview() {
   const [contracts] = useLocal<Contract[]>(K.contracts, []);
   const [notifications] = useLocal<Notification[]>(K.notifications, []);
   const isSupplier = user?.role === "supplier";
+  const visibleRfqs = visibleRfqsForUser(rfqs, user);
+  const visibleRfqIds = new Set(visibleRfqs.map((r) => r.id));
+  const visibleNotifications = visibleNotificationsForUser(notifications, user);
 
-  const activeRfqs = rfqs.filter((r) => r.status !== "Cancelada").length;
-  const supplierProposals = proposals.filter((p) => p.supplier === user?.company);
-  const visibleProposals = isSupplier ? supplierProposals : proposals;
-  const visibleContracts = isSupplier ? contracts.filter((c) => c.supplier === user?.company) : contracts;
+  const activeRfqs = visibleRfqs.filter((r) => r.status !== "Cancelada").length;
+  const scopedProposals = proposals.filter((p) => visibleRfqIds.has(p.rfqId));
+  const supplierProposals = scopedProposals.filter((p) => p.supplier === user?.company);
+  const visibleProposals = isSupplier ? supplierProposals : scopedProposals;
+  const visibleContracts = contracts.filter((c) => visibleRfqIds.has(c.rfqId) && (!isSupplier || c.supplier === user?.company));
   const volume = visibleContracts.reduce((s, c) => s + c.value, 0);
   const escrow = visibleContracts.filter((c) => c.status === "Em execução").reduce((s, c) => s + c.value * 0.3, 0);
   const net = visibleContracts.filter((c) => c.status === "Concluído").reduce((s, c) => s + c.value * 0.95, 0);
@@ -85,8 +89,8 @@ export default function Overview() {
                 </tr>
               </thead>
               <tbody>
-                {rfqs.slice(0, 6).map((r) => {
-                  const count = proposals.filter((p) => p.rfqId === r.id).length;
+                {visibleRfqs.slice(0, 6).map((r) => {
+                  const count = visibleProposals.filter((p) => p.rfqId === r.id).length;
                   return (
                     <tr key={r.id} className="border-t border-border hover:bg-secondary/40 cursor-pointer">
                       <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
@@ -114,7 +118,7 @@ export default function Overview() {
               <p className="text-xs text-muted-foreground">Eventos da plataforma</p>
             </header>
             <ul className="divide-y divide-border">
-              {notifications.slice(0, 5).map((a) => {
+              {visibleNotifications.slice(0, 5).map((a) => {
                 const Icon = a.type === "success" ? CheckCircle2 : a.type === "warning" ? Clock : FileText;
                 const color = a.type === "success" ? "text-success" : a.type === "warning" ? "text-warning" : "text-accent";
                 return (

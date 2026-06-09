@@ -43,6 +43,7 @@ export function useLocal<T>(key: string, initial: T) {
 export type RfqStatus = "Aberta" | "Em análise" | "Adjudicada" | "Cancelada";
 export type Rfq = {
   id: string;
+  projectId?: string;
   part: string;
   qty: number;
   due: string;
@@ -92,6 +93,7 @@ export type Supplier = {
   processes: string[];
   rating: number;
   verified: boolean;
+  createdAt?: string;
 };
 
 export type Buyer = {
@@ -107,8 +109,17 @@ export type Notification = {
   title: string;
   body?: string;
   type: "info" | "success" | "warning";
+  recipientRole?: "buyer" | "supplier";
+  recipientEmail?: string;
+  recipientCompany?: string;
   readAt?: string;
   createdAt: string;
+};
+
+export type StoreUser = {
+  email: string;
+  company: string;
+  role: "buyer" | "supplier";
 };
 
 // ===== Keys =====
@@ -189,6 +200,36 @@ export function seedIfEmpty() {
     ];
     write(K.notifications, notifications);
   }
+  const seededNotifications = read<Notification[]>(K.notifications, []);
+  if (seededNotifications.some((n) => !n.recipientRole && !n.recipientEmail && !n.recipientCompany)) {
+    write(
+      K.notifications,
+      seededNotifications.map((n) => {
+        if (n.id === "N-1") return { ...n, recipientRole: "supplier", recipientCompany: "Usinagem Vidal" };
+        if (n.id === "N-2") return { ...n, recipientRole: "buyer", recipientEmail: "demo@nexforge.com" };
+        if (n.id === "N-3") return { ...n, recipientRole: "supplier" };
+        return { ...n, recipientRole: "buyer" };
+      }),
+    );
+  }
+  const seededRfqs = read<Rfq[]>(K.rfqs, []);
+  if (seededRfqs.some((r) => !r.projectId)) {
+    write(
+      K.rfqs,
+      seededRfqs.map((r, index) => ({
+        ...r,
+        projectId: r.projectId ?? inferProjectId(r, index),
+      })),
+    );
+  }
+}
+
+function inferProjectId(rfq: Rfq, index: number) {
+  if (rfq.id === "RFQ-2847" || rfq.id === "RFQ-2846" || rfq.id === "RFQ-2841") return "PRJ-21";
+  if (rfq.id === "RFQ-2839") return "PRJ-19";
+  if (rfq.id === "RFQ-2835") return "PRJ-15";
+  const projects = ["PRJ-21", "PRJ-19", "PRJ-15"];
+  return projects[index % projects.length];
 }
 
 export function newId(prefix = "RFQ") {
@@ -203,4 +244,59 @@ export function pushNotification(n: Omit<Notification, "id" | "createdAt">) {
   const list = read<Notification[]>(K.notifications, []);
   const next: Notification = { ...n, id: uid("N"), createdAt: new Date().toISOString() };
   write(K.notifications, [next, ...list]);
+}
+
+export function ensureSupplierProfile(company: string) {
+  const name = company.trim();
+  if (!name) return;
+  const suppliers = read<Supplier[]>(K.suppliers, []);
+  if (suppliers.some((s) => s.name.toLowerCase() === name.toLowerCase())) return;
+
+  const next: Supplier = {
+    id: uid("S"),
+    name,
+    city: "Cadastro pendente",
+    processes: ["Cadastro pendente"],
+    rating: 0,
+    verified: false,
+    createdAt: new Date().toISOString(),
+  };
+  write(K.suppliers, [next, ...suppliers]);
+}
+
+export function getSupplierCreatedAt(user?: StoreUser | null) {
+  if (user?.role !== "supplier") return undefined;
+  const suppliers = read<Supplier[]>(K.suppliers, []);
+  return suppliers.find((s) => s.name.toLowerCase() === user.company.toLowerCase())?.createdAt;
+}
+
+export function isRfqVisibleToUser(rfq: Rfq, user?: StoreUser | null) {
+  if (!user) return false;
+  if (user.role === "buyer") return rfq.ownerEmail.toLowerCase() === user.email.toLowerCase();
+
+  const supplierCreatedAt = getSupplierCreatedAt(user);
+  if (!supplierCreatedAt) return true;
+  return new Date(rfq.createdAt).getTime() >= new Date(supplierCreatedAt).getTime();
+}
+
+export function visibleRfqsForUser(rfqs: Rfq[], user?: StoreUser | null) {
+  return rfqs.filter((rfq) => isRfqVisibleToUser(rfq, user));
+}
+
+export function isNotificationVisibleToUser(notification: Notification, user?: StoreUser | null) {
+  if (!user) return false;
+  if (notification.recipientRole && notification.recipientRole !== user.role) return false;
+  if (notification.recipientEmail && notification.recipientEmail.toLowerCase() !== user.email.toLowerCase()) return false;
+  if (notification.recipientCompany && notification.recipientCompany.toLowerCase() !== user.company.toLowerCase()) return false;
+
+  if (user.role === "supplier" && notification.recipientRole === "supplier" && !notification.recipientCompany) {
+    const supplierCreatedAt = getSupplierCreatedAt(user);
+    if (supplierCreatedAt && new Date(notification.createdAt).getTime() < new Date(supplierCreatedAt).getTime()) return false;
+  }
+
+  return Boolean(notification.recipientRole || notification.recipientEmail || notification.recipientCompany);
+}
+
+export function visibleNotificationsForUser(notifications: Notification[], user?: StoreUser | null) {
+  return notifications.filter((notification) => isNotificationVisibleToUser(notification, user));
 }

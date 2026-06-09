@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { useLocal, K, Rfq, Proposal, Contract, pushNotification } from "@/lib/store";
+import { useLocal, K, Rfq, Proposal, Contract, pushNotification, isRfqVisibleToUser } from "@/lib/store";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Check, X } from "lucide-react";
@@ -22,7 +22,7 @@ export default function RfqDetail() {
   const [contracts, setContracts] = useLocal<Contract[]>(K.contracts, []);
   const [open, setOpen] = useState(false);
 
-  const rfq = rfqs.find((r) => r.id === id);
+  const rfq = rfqs.find((r) => r.id === id && isRfqVisibleToUser(r, user));
   if (!rfq) return (
     <div className="rounded-xl border border-border bg-surface p-10 text-center">
       <p className="text-sm text-muted-foreground">RFQ não encontrada.</p>
@@ -30,7 +30,7 @@ export default function RfqDetail() {
     </div>
   );
 
-  const list = proposals.filter((p) => p.rfqId === rfq.id);
+  const list = proposals.filter((p) => p.rfqId === rfq.id && (!isSupplier || p.supplier === user?.company));
 
   function addProposal(data: { supplier: string; price: number; leadTimeDays: number; notes?: string }) {
     const p: Proposal = {
@@ -48,6 +48,8 @@ export default function RfqDetail() {
       setRfqs(rfqs.map((r) => (r.id === rfq.id ? { ...r, status: "Em análise" } : r)));
     }
     pushNotification({ title: "Nova proposta", body: `${data.supplier} — ${rfq.id}`, type: "info" });
+    pushNotification({ title: "Nova proposta", body: `${p.supplier} - ${rfq.id}`, type: "info", recipientRole: "buyer", recipientEmail: rfq.ownerEmail });
+    pushNotification({ title: "Proposta enviada", body: `${rfq.id} - ${rfq.part}`, type: "success", recipientRole: "supplier", recipientCompany: p.supplier });
     toast.success("Proposta registrada");
     setOpen(false);
   }
@@ -71,6 +73,8 @@ export default function RfqDetail() {
       };
       setContracts([ct, ...contracts]);
       pushNotification({ title: "Contrato gerado", body: `${ct.id} — ${p.supplier}`, type: "success" });
+      pushNotification({ title: "Contrato gerado", body: `${ct.id} - ${p.supplier}`, type: "success", recipientRole: "buyer", recipientEmail: rfq.ownerEmail });
+      pushNotification({ title: "Proposta aprovada", body: `${ct.id} - ${rfq.id}`, type: "success", recipientRole: "supplier", recipientCompany: p.supplier });
       toast.success(`Adjudicada para ${p.supplier}. Contrato ${ct.id} criado.`);
     } else {
       setProposals(proposals.map((x) => (x.id === p.id ? { ...x, status: "Recusada" } : x)));

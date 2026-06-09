@@ -1,24 +1,35 @@
 import { useEffect } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { useLocal, K, Notification } from "@/lib/store";
+import { useLocal, K, Notification, visibleNotificationsForUser } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Clock, FileText } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Notificacoes() {
+  const { user } = useAuth();
   const [list, setList] = useLocal<Notification[]>(K.notifications, []);
+  const visibleList = visibleNotificationsForUser(list, user);
+
   useEffect(() => {
-    if (list.some((n) => !n.readAt)) {
+    if (visibleList.some((n) => !n.readAt)) {
       const now = new Date().toISOString();
-      setList(list.map((n) => (n.readAt ? n : { ...n, readAt: now })));
+      const visibleIds = new Set(visibleList.map((n) => n.id));
+      setList(list.map((n) => (!n.readAt && visibleIds.has(n.id) ? { ...n, readAt: now } : n)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function clearVisibleNotifications() {
+    const visibleIds = new Set(visibleList.map((n) => n.id));
+    setList(list.filter((n) => !visibleIds.has(n.id)));
+  }
+
   return (
     <>
-      <PageHeader title="Notificações" description="Eventos da plataforma." actions={<Button variant="outline" onClick={() => setList([])}>Limpar tudo</Button>} />
+      <PageHeader title="Notificações" description="Eventos da plataforma." actions={<Button variant="outline" onClick={clearVisibleNotifications}>Limpar tudo</Button>} />
       <section className="rounded-xl border border-border bg-surface divide-y divide-border">
-        {list.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">Sem notificações.</div>}
-        {list.map((n) => {
+        {visibleList.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">Sem notificações.</div>}
+        {visibleList.map((n) => {
           const Icon = n.type === "success" ? CheckCircle2 : n.type === "warning" ? Clock : FileText;
           const color = n.type === "success" ? "text-success" : n.type === "warning" ? "text-warning" : "text-accent";
           return (

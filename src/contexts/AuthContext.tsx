@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
-import { K, seedIfEmpty } from "@/lib/store";
+import { ensureSupplierProfile, K, seedIfEmpty } from "@/lib/store";
 
 export type Role = "buyer" | "supplier";
 export type User = { email: string; name: string; company: string; role: Role };
@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const users = JSON.parse(localStorage.getItem(K.users) || "[]") as Stored[];
         const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
         if (!found) return { ok: false, error: "E-mail ou senha inválidos." };
+        if (found.role === "supplier") ensureSupplierProfile(found.company);
         const u: User = { email: found.email, name: found.name, company: found.company, role: found.role };
         localStorage.setItem(K.session, JSON.stringify(u));
         setUser(u);
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         users.push(data);
         localStorage.setItem(K.users, JSON.stringify(users));
+        if (data.role === "supplier") ensureSupplierProfile(data.company);
         const u: User = { email: data.email, name: data.name, company: data.company, role: data.role };
         localStorage.setItem(K.session, JSON.stringify(u));
         setUser(u);

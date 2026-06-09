@@ -7,32 +7,42 @@ import {
   LayoutDashboard, FileText, Users, Briefcase, FileSignature, Bell, Factory, Package, Settings, LifeBuoy,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { K, Notification, Proposal, Rfq, useLocal, visibleNotificationsForUser, visibleRfqsForUser } from "@/lib/store";
 
-const buyerMain = [
+type BadgeKey = "rfqs" | "proposals" | "notifications";
+type SidebarItem = {
+  title: string;
+  url: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+  badgeKey?: BadgeKey;
+};
+
+const buyerMain: SidebarItem[] = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard, end: true },
-  { title: "Cotações (RFQ)", url: "/dashboard/cotacoes", icon: FileText, badge: 12 },
+  { title: "Cotações (RFQ)", url: "/dashboard/cotacoes", icon: FileText, badgeKey: "rfqs" },
   { title: "Projetos", url: "/dashboard/projetos", icon: Briefcase },
-  { title: "Propostas", url: "/dashboard/propostas", icon: Package, badge: 4 },
+  { title: "Propostas", url: "/dashboard/propostas", icon: Package, badgeKey: "proposals" },
   { title: "Financeiro", url: "/dashboard/contratos", icon: FileSignature },
 ];
 
-const supplierMain = [
+const supplierMain: SidebarItem[] = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard, end: true },
-  { title: "RFQs abertas", url: "/dashboard/cotacoes", icon: FileText, badge: 12 },
-  { title: "Minhas propostas", url: "/dashboard/propostas", icon: Package, badge: 4 },
+  { title: "RFQs abertas", url: "/dashboard/cotacoes", icon: FileText, badgeKey: "rfqs" },
+  { title: "Minhas propostas", url: "/dashboard/propostas", icon: Package, badgeKey: "proposals" },
   { title: "Financeiro", url: "/dashboard/contratos", icon: FileSignature },
 ];
 
-const buyerNetwork = [
+const buyerNetwork: SidebarItem[] = [
   { title: "Fornecedores", url: "/dashboard/fornecedores", icon: Factory },
 ];
 
-const supplierNetwork = [
+const supplierNetwork: SidebarItem[] = [
   { title: "Compradores", url: "/dashboard/compradores", icon: Users },
 ];
 
-const system = [
-  { title: "Notificações", url: "/dashboard/notificacoes", icon: Bell, badge: 3 },
+const system: SidebarItem[] = [
+  { title: "Notificações", url: "/dashboard/notificacoes", icon: Bell, badgeKey: "notifications" },
   { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
   { title: "Suporte", url: "/dashboard/suporte", icon: LifeBuoy },
 ];
@@ -40,30 +50,48 @@ const system = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { user } = useAuth();
+  const [rfqs] = useLocal<Rfq[]>(K.rfqs, []);
+  const [proposals] = useLocal<Proposal[]>(K.proposals, []);
+  const [notifications] = useLocal<Notification[]>(K.notifications, []);
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
   const isActive = (url: string, end?: boolean) => end ? pathname === url : pathname.startsWith(url);
+
+  const visibleRfqs = visibleRfqsForUser(rfqs, user);
+  const visibleRfqIds = new Set(visibleRfqs.map((r) => r.id));
+  const visibleProposals = proposals.filter((p) => visibleRfqIds.has(p.rfqId) && (user?.role !== "supplier" || p.supplier === user.company));
+  const visibleNotifications = visibleNotificationsForUser(notifications, user);
+  const unreadNotifications = visibleNotifications.filter((n) => !n.readAt).length;
+  const badges: Record<BadgeKey, number> = {
+    rfqs: visibleRfqs.length,
+    proposals: visibleProposals.length,
+    notifications: unreadNotifications,
+  };
+
   const main = user?.role === "supplier" ? supplierMain : buyerMain;
   const network = user?.role === "supplier" ? supplierNetwork : buyerNetwork;
 
-  const renderGroup = (label: string, items: typeof buyerMain) => (
+  const renderGroup = (label: string, items: SidebarItem[]) => (
     <SidebarGroup>
       {!collapsed && <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</SidebarGroupLabel>}
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((it) => (
-            <SidebarMenuItem key={it.title}>
-              <SidebarMenuButton asChild isActive={isActive(it.url, (it as any).end)} tooltip={it.title}>
-                <NavLink to={it.url} end={(it as any).end} className="flex items-center gap-3">
-                  <it.icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span className="flex-1 truncate">{it.title}</span>}
-                  {!collapsed && (it as any).badge && (
-                    <span className="ml-auto rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-accent">{(it as any).badge}</span>
-                  )}
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((it) => {
+            const badge = it.badgeKey ? badges[it.badgeKey] : 0;
+            return (
+              <SidebarMenuItem key={it.title}>
+                <SidebarMenuButton asChild isActive={isActive(it.url, it.end)} tooltip={it.title}>
+                  <NavLink to={it.url} end={it.end} className="flex items-center gap-3">
+                    <it.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span className="flex-1 truncate">{it.title}</span>}
+                    {!collapsed && badge > 0 && (
+                      <span className="ml-auto rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-accent">{badge}</span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

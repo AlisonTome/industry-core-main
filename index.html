@@ -21,6 +21,18 @@
   <meta name="twitter:description" content="Conecte-se a fornecedores industriais qualificados para CNC, corte a laser, chapa, solda, fundição, manufatura aditiva e tratamento térmico. Cotações, comparação e gestão de fabricação.">
   <meta property="og:image" content="/og-nexforge.png">
   <meta name="twitter:image" content="/og-nexforge.png">
+  <script>
+    (function (location) {
+      if (location.search[1] === "/") {
+        var decoded = location.search
+          .slice(1)
+          .split("&")
+          .map(function (part) { return part.replace(/~and~/g, "&"); })
+          .join("?");
+        window.history.replaceState(null, null, location.pathname.slice(0, -1) + decoded + location.hash);
+      }
+    })(window.location);
+  </script>
 </head>
 
   <body>

@@ -1,18 +1,26 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
-import { Bell, LogOut, Search } from "lucide-react";
+import { Bell, LogOut, Moon, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocal, K, Notification } from "@/lib/store";
+import { useLocal, K, Notification, visibleNotificationsForUser } from "@/lib/store";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useEffect, useState } from "react";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const [notifications] = useLocal<Notification[]>(K.notifications, []);
-  const unread = notifications.filter((n) => !n.readAt).length;
+  const [isDark, setIsDark] = useState(() => localStorage.getItem("nf.theme") === "dark");
+  const visibleNotifications = visibleNotificationsForUser(notifications, user);
+  const unread = visibleNotifications.filter((n) => !n.readAt).length;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem("nf.theme", isDark ? "dark" : "light");
+  }, [isDark]);
 
   return (
     <SidebarProvider>
@@ -33,6 +41,15 @@ const Dashboard = () => {
             <Button variant="ghost" size="icon" aria-label="Notificações" onClick={() => nav("/dashboard/notificacoes")} className="relative">
               <Bell className="h-4 w-4" />
               {unread > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
+              title={isDark ? "Tema claro" : "Tema escuro"}
+              onClick={() => setIsDark((current) => !current)}
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
             {user?.role !== "supplier" && (
               <Button variant="accent" size="sm" onClick={() => nav("/dashboard/cotacoes?new=1")}>Nova RFQ</Button>

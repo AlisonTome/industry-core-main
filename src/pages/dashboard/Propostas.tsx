@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { useLocal, K, Proposal, Rfq } from "@/lib/store";
+import { useLocal, K, Proposal, Rfq, visibleRfqsForUser } from "@/lib/store";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Propostas() {
@@ -9,7 +9,9 @@ export default function Propostas() {
   const isSupplier = user?.role === "supplier";
   const [proposals] = useLocal<Proposal[]>(K.proposals, []);
   const [rfqs] = useLocal<Rfq[]>(K.rfqs, []);
-  const visible = isSupplier ? proposals.filter((p) => p.supplier === user?.company) : proposals;
+  const visibleRfqs = visibleRfqsForUser(rfqs, user);
+  const visibleRfqIds = new Set(visibleRfqs.map((r) => r.id));
+  const visible = proposals.filter((p) => visibleRfqIds.has(p.rfqId) && (!isSupplier || p.supplier === user?.company));
   return (
     <>
       <PageHeader
@@ -30,7 +32,7 @@ export default function Propostas() {
           <tbody>
             {visible.length === 0 && <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">Sem propostas.</td></tr>}
             {visible.map((p) => {
-              const rfq = rfqs.find((r) => r.id === p.rfqId);
+              const rfq = visibleRfqs.find((r) => r.id === p.rfqId);
               return (
                 <tr key={p.id} className="border-t border-border hover:bg-secondary/40">
                   <td className="px-5 py-3 font-mono text-xs"><Link to={`/dashboard/cotacoes/${p.rfqId}`} className="text-muted-foreground hover:text-accent">{p.rfqId}</Link><div className="text-foreground text-sm font-medium">{rfq?.part ?? ""}</div></td>
