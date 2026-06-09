@@ -6,7 +6,7 @@ Plataforma B2B para conexão entre indústrias que precisam de fabricação e fo
 
 Site publicado via GitHub Pages:  
 
-**https://AlisonTome.github.io/nexforge**
+**https://AlisonTome.github.io/industry-core-main**
 
 
 ## 🗂 Estrutura do projeto
