@@ -6,8 +6,8 @@ export default function Compradores() {
   return (
     <>
       <PageHeader title="Compradores" description="Empresas industriais ativas na plataforma." />
-      <section className="rounded-xl border border-border bg-surface overflow-x-auto">
-        <table className="w-full text-sm">
+      <section className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border bg-surface">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <th className="px-5 py-3">Empresa</th>

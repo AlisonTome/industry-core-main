@@ -44,6 +44,7 @@ export type RfqStatus = "Aberta" | "Em análise" | "Adjudicada" | "Cancelada";
 export type Rfq = {
   id: string;
   projectId?: string;
+  projectLinks?: Record<string, string | undefined>;
   part: string;
   qty: number;
   due: string;
@@ -81,6 +82,9 @@ export type Project = {
   id: string;
   name: string;
   client: string;
+  ownerEmail?: string;
+  ownerCompany?: string;
+  ownerRole?: "buyer" | "supplier";
   status: "Planejamento" | "Em andamento" | "Concluído";
   rfqs: number;
   startedAt: string;
@@ -222,6 +226,18 @@ export function seedIfEmpty() {
       })),
     );
   }
+  const seededProjects = read<Project[]>(K.projects, []);
+  if (seededProjects.some((p) => !p.ownerEmail || !p.ownerCompany || !p.ownerRole)) {
+    write(
+      K.projects,
+      seededProjects.map((p) => ({
+        ...p,
+        ownerEmail: p.ownerEmail ?? "demo@nexforge.com",
+        ownerCompany: p.ownerCompany ?? "NexForge Demo",
+        ownerRole: p.ownerRole ?? "buyer",
+      })),
+    );
+  }
 }
 
 function inferProjectId(rfq: Rfq, index: number) {
@@ -281,6 +297,30 @@ export function isRfqVisibleToUser(rfq: Rfq, user?: StoreUser | null) {
 
 export function visibleRfqsForUser(rfqs: Rfq[], user?: StoreUser | null) {
   return rfqs.filter((rfq) => isRfqVisibleToUser(rfq, user));
+}
+
+export function projectOwnerKey(user?: StoreUser | null) {
+  if (!user) return "";
+  return `${user.role}:${user.role === "buyer" ? user.email.toLowerCase() : user.company.toLowerCase()}`;
+}
+
+export function getRfqProjectId(rfq: Rfq, user?: StoreUser | null) {
+  if (!user) return rfq.projectId;
+  const key = projectOwnerKey(user);
+  return rfq.projectLinks?.[key] ?? (user.role === "buyer" ? rfq.projectId : undefined);
+}
+
+export function isProjectVisibleToUser(project: Project, user?: StoreUser | null) {
+  if (!user) return false;
+  if (!project.ownerEmail && !project.ownerCompany && !project.ownerRole) return true;
+  if (project.ownerRole && project.ownerRole !== user.role) return false;
+  if (project.ownerEmail && project.ownerEmail.toLowerCase() === user.email.toLowerCase()) return true;
+  if (project.ownerCompany && project.ownerCompany.toLowerCase() === user.company.toLowerCase()) return true;
+  return false;
+}
+
+export function visibleProjectsForUser(projects: Project[], user?: StoreUser | null) {
+  return projects.filter((project) => isProjectVisibleToUser(project, user));
 }
 
 export function isNotificationVisibleToUser(notification: Notification, user?: StoreUser | null) {

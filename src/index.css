@@ -111,6 +111,7 @@
 @layer base {
   * { @apply border-border; }
   html { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  html, body, #root { max-width: 100%; overflow-x: hidden; }
   body { @apply bg-background text-foreground; font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
   h1, h2, h3, h4 { letter-spacing: 0; }
 }

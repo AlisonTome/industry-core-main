@@ -13,6 +13,7 @@ type AuthCtx = {
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
+const legacyDemoEmails = new Set(["metal@ind.com", "carlos@ind.com"]);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -20,13 +21,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     seedIfEmpty();
     // Keep a local demo account available during prototyping.
-    const users = JSON.parse(localStorage.getItem(K.users) || "[]") as Stored[];
+    let users = JSON.parse(localStorage.getItem(K.users) || "[]") as Stored[];
+    users = users.filter((u) => !legacyDemoEmails.has(u.email.toLowerCase()));
     if (!users.find((u) => u.email === "demo@nexforge.com")) {
       users.push({ email: "demo@nexforge.com", password: "demo1234", name: "Usuário Demo", company: "NexForge Demo", role: "buyer" });
-      localStorage.setItem(K.users, JSON.stringify(users));
     }
+    localStorage.setItem(K.users, JSON.stringify(users));
     const session = localStorage.getItem(K.session);
-    if (session) setUser(JSON.parse(session));
+    if (session) {
+      const currentSession = JSON.parse(session) as User;
+      if (legacyDemoEmails.has(currentSession.email.toLowerCase())) {
+        localStorage.removeItem(K.session);
+        return;
+      }
+      setUser(currentSession);
+    }
   }, []);
 
   const api = useMemo<AuthCtx>(

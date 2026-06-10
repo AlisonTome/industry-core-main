@@ -18,8 +18,8 @@ export default function Propostas() {
         title={isSupplier ? "Minhas propostas" : "Propostas"}
         description={isSupplier ? "Propostas enviadas pela sua empresa e seus respectivos status." : "Todas as propostas recebidas em suas RFQs."}
       />
-      <section className="rounded-xl border border-border bg-surface overflow-x-auto">
-        <table className="w-full text-sm">
+      <section className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border bg-surface">
+        <table className="w-full min-w-[620px] text-sm">
           <thead>
             <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <th className="px-5 py-3">RFQ</th>

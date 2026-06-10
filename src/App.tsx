@@ -15,6 +15,7 @@ import RfqDetail from "./pages/dashboard/RfqDetail.tsx";
 import Propostas from "./pages/dashboard/Propostas.tsx";
 import Contratos from "./pages/dashboard/Contratos.tsx";
 import Projetos from "./pages/dashboard/Projetos.tsx";
+import ProjetoDetail from "./pages/dashboard/ProjetoDetail.tsx";
 import Fornecedores from "./pages/dashboard/Fornecedores.tsx";
 import Compradores from "./pages/dashboard/Compradores.tsx";
 import Notificacoes from "./pages/dashboard/Notificacoes.tsx";
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="propostas" element={<Propostas />} />
               <Route path="contratos" element={<Contratos />} />
               <Route path="projetos" element={<Projetos />} />
+              <Route path="projetos/:id" element={<ProjetoDetail />} />
               <Route path="fornecedores" element={<Fornecedores />} />
               <Route path="compradores" element={<Compradores />} />
               <Route path="notificacoes" element={<Notificacoes />} />

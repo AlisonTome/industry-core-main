@@ -66,8 +66,8 @@ export default function Overview() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section className="lg:col-span-2 rounded-xl border border-border bg-surface">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+        <section className="min-w-0 lg:col-span-2 rounded-xl border border-border bg-surface">
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold text-foreground">RFQs recentes</h2>
@@ -75,8 +75,8 @@ export default function Overview() {
             </div>
             <Link to="/dashboard/cotacoes"><Button variant="ghost" size="sm">Ver todas</Button></Link>
           </header>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="max-w-full overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <th className="px-5 py-3">ID</th>
@@ -111,7 +111,7 @@ export default function Overview() {
         </section>
 
         <aside className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface">
+          <section className="min-w-0 rounded-xl border border-border bg-surface">
             <header className="border-b border-border px-5 py-4">
               <h2 className="text-sm font-semibold text-foreground">Atividade</h2>
               <p className="text-xs text-muted-foreground">Eventos da plataforma</p>

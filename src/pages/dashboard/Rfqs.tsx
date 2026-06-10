@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { useLocal, K, Rfq, Proposal, Project, newId, pushNotification, visibleRfqsForUser } from "@/lib/store";
+import { getRfqProjectId, useLocal, K, Rfq, Proposal, Project, newId, pushNotification, visibleProjectsForUser, visibleRfqsForUser } from "@/lib/store";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -23,6 +23,7 @@ const rfqSchema = z.object({
   material: z.string().max(80).optional(),
   due: z.string().min(1, "Informe data de entrega"),
   description: z.string().max(1000).optional(),
+  projectId: z.string().optional(),
 });
 
 export default function Rfqs() {
@@ -36,7 +37,9 @@ export default function Rfqs() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("Todas");
   const projectId = params.get("project") || "";
-  const selectedProject = projects.find((p) => p.id === projectId);
+  const visibleProjects = useMemo(() => visibleProjectsForUser(projects, user), [projects, user]);
+  const selectedProject = visibleProjects.find((p) => p.id === projectId);
+  const activeProjectId = selectedProject?.id ?? "";
   const visibleRfqs = useMemo(() => visibleRfqsForUser(rfqs, user), [rfqs, user]);
 
   useEffect(() => {
@@ -50,12 +53,12 @@ export default function Rfqs() {
   const filtered = useMemo(
     () =>
       visibleRfqs.filter((r) => {
-        if (projectId && r.projectId !== projectId) return false;
+        if (activeProjectId && getRfqProjectId(r, user) !== activeProjectId) return false;
         if (status !== "Todas" && r.status !== status) return false;
         if (query && !`${r.id} ${r.part} ${r.process}`.toLowerCase().includes(query.toLowerCase())) return false;
         return true;
       }),
-    [visibleRfqs, projectId, query, status],
+    [visibleRfqs, activeProjectId, query, status],
   );
 
   function clearProjectFilter() {
@@ -69,7 +72,7 @@ export default function Rfqs() {
     const id = newId("RFQ");
     const next: Rfq = {
       id,
-      projectId: projectId || undefined,
+      projectId: parsed.data.projectId && parsed.data.projectId !== "__none__" ? parsed.data.projectId : activeProjectId || undefined,
       part: parsed.data.part,
       qty: parsed.data.qty,
       process: parsed.data.process,
@@ -103,8 +106,8 @@ export default function Rfqs() {
         {selectedProject && <Button type="button" variant="outline" onClick={clearProjectFilter}>Ver todas</Button>}
       </div>
 
-      <section className="rounded-xl border border-border bg-surface overflow-x-auto">
-        <table className="w-full text-sm">
+      <section className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border bg-surface">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <th className="px-5 py-3">ID</th>
@@ -145,6 +148,16 @@ export default function Rfqs() {
             <DialogDescription>{selectedProject ? `Esta RFQ será vinculada ao projeto ${selectedProject.id}.` : "Preencha os dados técnicos. Você poderá anexar desenhos depois."}</DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); createRfq(Object.fromEntries(fd)); }} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectId">Projeto</Label>
+              <Select name="projectId" defaultValue={activeProjectId || "__none__"}>
+                <SelectTrigger id="projectId"><SelectValue placeholder="Sem projeto vinculado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem projeto vinculado</SelectItem>
+                  {visibleProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.id} - {p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label htmlFor="part">Peça</Label><Input id="part" name="part" placeholder="Ex.: Flange ASTM A350 LF2" required /></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2"><Label htmlFor="qty">Quantidade</Label><Input id="qty" name="qty" type="number" min={1} required /></div>

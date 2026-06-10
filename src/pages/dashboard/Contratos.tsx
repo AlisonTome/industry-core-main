@@ -52,8 +52,8 @@ export default function Contratos() {
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-surface overflow-x-auto">
-        <table className="w-full text-sm">
+      <section className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border bg-surface">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <th className="px-5 py-3">Contrato</th>

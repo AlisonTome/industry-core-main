@@ -48,12 +48,13 @@ const system: SidebarItem[] = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { user } = useAuth();
   const [rfqs] = useLocal<Rfq[]>(K.rfqs, []);
   const [proposals] = useLocal<Proposal[]>(K.proposals, []);
   const [notifications] = useLocal<Notification[]>(K.notifications, []);
   const collapsed = state === "collapsed";
+  const iconOnly = collapsed && !isMobile;
   const { pathname } = useLocation();
   const isActive = (url: string, end?: boolean) => end ? pathname === url : pathname.startsWith(url);
 
@@ -70,6 +71,9 @@ export function AppSidebar() {
 
   const main = user?.role === "supplier" ? supplierMain : buyerMain;
   const network = user?.role === "supplier" ? supplierNetwork : buyerNetwork;
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   const renderGroup = (label: string, items: SidebarItem[]) => (
     <SidebarGroup>
@@ -81,7 +85,7 @@ export function AppSidebar() {
             return (
               <SidebarMenuItem key={it.title}>
                 <SidebarMenuButton asChild isActive={isActive(it.url, it.end)} tooltip={it.title}>
-                  <NavLink to={it.url} end={it.end} className="flex items-center gap-3">
+                  <NavLink to={it.url} end={it.end} onClick={closeMobileSidebar} className="flex items-center gap-3">
                     <it.icon className="h-4 w-4 shrink-0" />
                     {!collapsed && <span className="flex-1 truncate">{it.title}</span>}
                     {!collapsed && badge > 0 && (
@@ -100,9 +104,9 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-1">
+        <div className={iconOnly ? "flex justify-center px-0 py-2" : "flex items-center gap-2 px-2 py-1"}>
           <div className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground font-bold shrink-0">N</div>
-          {!collapsed && (
+          {!iconOnly && (
             <div className="min-w-0">
               <p className="text-sm font-bold leading-tight truncate">NexForge</p>
               <p className="text-[10px] text-muted-foreground truncate">Procurement industrial</p>
@@ -116,11 +120,11 @@ export function AppSidebar() {
         {renderGroup("Sistema", system)}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-1.5">
+        <div className={iconOnly ? "flex justify-center px-0 py-2" : "flex items-center gap-2 px-2 py-1.5"}>
           <div className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-xs font-bold">
             {(user?.name ?? "U").split(" ").map((p) => p[0]).slice(0, 2).join("")}
           </div>
-          {!collapsed && (
+          {!iconOnly && (
             <div className="min-w-0">
               <p className="text-xs font-semibold truncate">{user?.name ?? "Usuário"}</p>
               <p className="text-[10px] text-muted-foreground truncate">{user?.company ?? "Workspace"}</p>

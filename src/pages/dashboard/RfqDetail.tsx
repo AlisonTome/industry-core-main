@@ -119,12 +119,12 @@ export default function RfqDetail() {
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-surface">
+      <section className="min-w-0 rounded-xl border border-border bg-surface">
         <header className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold">Propostas ({list.length})</h2>
         </header>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="max-w-full overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="px-5 py-3">Fornecedor</th>
