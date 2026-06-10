@@ -108,7 +108,7 @@ function LeafletMap({ points, large }: { points: GeoPoint[]; large?: boolean }) 
     };
   }, [points]);
 
-  return <div ref={containerRef} className={large ? "h-[70vh] w-full" : "h-64 w-full"} />;
+  return <div ref={containerRef} className={large ? "h-[68vh] max-h-[680px] w-full" : "h-64 w-full"} />;
 }
 
 export function MapPreview({ title = "Mapa", emptyMessage = "Nenhum ponto para exibir no mapa.", points }: { title?: string; emptyMessage?: string; points: MapPoint[] }) {
@@ -135,25 +135,27 @@ export function MapPreview({ title = "Mapa", emptyMessage = "Nenhum ponto para e
   }, [normalizedPoints]);
 
   const content = (large = false) => (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-surface">
+    <div className="relative isolate z-0 overflow-hidden rounded-xl border border-border bg-surface">
       {geoPoints.length ? (
         <LeafletMap points={geoPoints} large={large} />
       ) : (
-        <div className={large ? "grid h-[70vh] place-items-center px-6 text-center text-sm text-muted-foreground" : "grid h-64 place-items-center px-6 text-center text-sm text-muted-foreground"}>
+        <div className={large ? "grid h-[68vh] max-h-[680px] place-items-center px-6 text-center text-sm text-muted-foreground" : "grid h-64 place-items-center px-6 text-center text-sm text-muted-foreground"}>
           {loading ? "Localizando pontos no mapa..." : emptyMessage}
         </div>
       )}
-      <Button type="button" size="sm" variant="outline" className="absolute right-3 top-3 z-[500] bg-background/95" onClick={() => setExpanded(true)}>
-        <Maximize2 className="mr-1 h-3.5 w-3.5" /> Expandir
-      </Button>
+      {!large && (
+        <Button type="button" size="sm" variant="outline" className="absolute right-3 top-3 z-10 bg-background/95" onClick={() => setExpanded(true)}>
+          <Maximize2 className="mr-1 h-3.5 w-3.5" /> Expandir
+        </Button>
+      )}
     </div>
   );
 
   return (
     <>
-      {content()}
+      {expanded ? <div className="h-64 rounded-xl border border-border bg-surface" /> : content()}
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="max-w-6xl">
+        <DialogContent className="z-[1000] max-h-[92vh] max-w-[96vw] overflow-hidden p-4 sm:max-w-6xl sm:p-6">
           <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
           {content(true)}
         </DialogContent>
