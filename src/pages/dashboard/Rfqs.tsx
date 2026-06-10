@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { getRfqProjectId, useLocal, K, Rfq, Proposal, Project, newId, pushNotification, visibleProjectsForUser, visibleRfqsForUser } from "@/lib/store";
+import { AddressSettings, getRfqProjectId, useLocal, K, Rfq, Proposal, Project, newId, pushNotification, visibleProjectsForUser, visibleRfqsForUser } from "@/lib/store";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -24,6 +24,8 @@ const rfqSchema = z.object({
   due: z.string().min(1, "Informe data de entrega"),
   description: z.string().max(1000).optional(),
   projectId: z.string().optional(),
+  deliveryMode: z.enum(["Retirada", "Envio"]).default("Retirada"),
+  deliveryAddress: z.string().max(400).optional(),
 });
 
 export default function Rfqs() {
@@ -32,12 +34,15 @@ export default function Rfqs() {
   const [rfqs, setRfqs] = useLocal<Rfq[]>(K.rfqs, []);
   const [proposals] = useLocal<Proposal[]>(K.proposals, []);
   const [projects] = useLocal<Project[]>(K.projects, []);
+  const [addresses] = useLocal<AddressSettings[]>(K.addresses, []);
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("Todas");
   const projectId = params.get("project") || "";
   const visibleProjects = useMemo(() => visibleProjectsForUser(projects, user), [projects, user]);
+  const userAddress = addresses.find((a) => a.ownerEmail === user?.email);
+  const formattedAddress = userAddress ? `${userAddress.street}, ${userAddress.number} - ${userAddress.district}, ${userAddress.city}/${userAddress.state} - CEP ${userAddress.zipCode}${userAddress.complement ? ` (${userAddress.complement})` : ""}` : "";
   const selectedProject = visibleProjects.find((p) => p.id === projectId);
   const activeProjectId = selectedProject?.id ?? "";
   const visibleRfqs = useMemo(() => visibleRfqsForUser(rfqs, user), [rfqs, user]);
@@ -79,6 +84,8 @@ export default function Rfqs() {
       material: parsed.data.material,
       due: parsed.data.due,
       description: parsed.data.description,
+      deliveryMode: parsed.data.deliveryMode,
+      deliveryAddress: parsed.data.deliveryMode === "Envio" ? parsed.data.deliveryAddress || formattedAddress : undefined,
       status: "Aberta",
       createdAt: new Date().toISOString(),
       ownerEmail: user!.email,
@@ -115,13 +122,14 @@ export default function Rfqs() {
               <th className="px-5 py-3">Qtd</th>
               <th className="px-5 py-3 hidden md:table-cell">Processo</th>
               <th className="px-5 py-3 hidden lg:table-cell">Entrega</th>
+              <th className="px-5 py-3 hidden xl:table-cell">Logistica</th>
               <th className="px-5 py-3">Cotações</th>
               <th className="px-5 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">Nenhuma RFQ encontrada.</td></tr>
+              <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-muted-foreground">Nenhuma RFQ encontrada.</td></tr>
             )}
             {filtered.map((r) => {
               const count = proposals.filter((p) => p.rfqId === r.id && (!isSupplier || p.supplier === user?.company)).length;
@@ -132,6 +140,7 @@ export default function Rfqs() {
                   <td className="px-5 py-3 tabular-nums">{r.qty}</td>
                   <td className="px-5 py-3 hidden md:table-cell text-muted-foreground">{r.process}</td>
                   <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground">{r.due}</td>
+                  <td className="px-5 py-3 hidden xl:table-cell text-muted-foreground">{r.deliveryMode ?? "Retirada"}</td>
                   <td className="px-5 py-3 tabular-nums">{count}</td>
                   <td className="px-5 py-3"><StatusBadge status={r.status} /></td>
                 </tr>
@@ -174,6 +183,22 @@ export default function Rfqs() {
               <div className="space-y-2"><Label htmlFor="material">Material</Label><Input id="material" name="material" placeholder="Ex.: Aço 4140" /></div>
             </div>
             <div className="space-y-2"><Label htmlFor="description">Observações</Label><Textarea id="description" name="description" rows={3} maxLength={1000} placeholder="Tolerâncias, acabamento, certificações..." /></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="deliveryMode">Logistica</Label>
+                <Select name="deliveryMode" defaultValue="Retirada">
+                  <SelectTrigger id="deliveryMode"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Retirada">Cliente retira no fornecedor</SelectItem>
+                    <SelectItem value="Envio">Fornecedor deve enviar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deliveryAddress">Endereco para envio</Label>
+                <Textarea id="deliveryAddress" name="deliveryAddress" rows={2} maxLength={400} defaultValue={formattedAddress} placeholder="Usado apenas quando houver envio." />
+              </div>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
               <Button type="submit" variant="accent">Criar RFQ</Button>

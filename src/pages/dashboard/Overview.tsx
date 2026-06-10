@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight, ArrowDownRight, FileText, Package, FileSignature, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLocal, K, Rfq, Proposal, Contract, Notification, visibleNotificationsForUser, visibleRfqsForUser } from "@/lib/store";
+import { useLocal, K, Rfq, Proposal, Contract, Notification, PaymentStatus, visibleNotificationsForUser, visibleRfqsForUser } from "@/lib/store";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
+
+function isEscrowHeld(status?: PaymentStatus) {
+  return status === "Pago em escrow" || status === "Entrega informada" || status === "Reembolso solicitado" || status === "Em disputa";
+}
 
 export default function Overview() {
   const { user } = useAuth();
@@ -20,16 +24,16 @@ export default function Overview() {
   const scopedProposals = proposals.filter((p) => visibleRfqIds.has(p.rfqId));
   const supplierProposals = scopedProposals.filter((p) => p.supplier === user?.company);
   const visibleProposals = isSupplier ? supplierProposals : scopedProposals;
-  const visibleContracts = contracts.filter((c) => visibleRfqIds.has(c.rfqId) && (!isSupplier || c.supplier === user?.company));
+  const visibleContracts = contracts.filter((c) => (isSupplier ? c.supplier === user?.company : c.buyerEmail === user?.email || visibleRfqIds.has(c.rfqId)));
   const volume = visibleContracts.reduce((s, c) => s + c.value, 0);
-  const escrow = visibleContracts.filter((c) => c.status === "Em execução").reduce((s, c) => s + c.value * 0.3, 0);
-  const net = visibleContracts.filter((c) => c.status === "Concluído").reduce((s, c) => s + c.value * 0.95, 0);
+  const escrow = visibleContracts.filter((c) => isEscrowHeld(c.paymentStatus)).reduce((s, c) => s + c.value, 0);
+  const net = visibleContracts.filter((c) => c.paymentStatus === "Liberado").reduce((s, c) => s + c.value * 0.95, 0);
 
   const kpis = isSupplier
     ? [
         { label: "RFQs disponíveis", value: String(activeRfqs), delta: "Aberto", up: true, sub: "para análise", icon: FileText },
         { label: "Propostas enviadas", value: String(visibleProposals.length), delta: "Atual", up: true, sub: "sua empresa", icon: Package },
-        { label: "Em escrow", value: `R$ ${(escrow / 1000).toFixed(1)}k`, delta: "30%", up: true, sub: "contratos ativos", icon: FileSignature },
+        { label: "Em escrow", value: `R$ ${(escrow / 1000).toFixed(1)}k`, delta: "Retido", up: true, sub: "aguardando entrega", icon: FileSignature },
         { label: "Líquido recebido", value: `R$ ${(net / 1000).toFixed(1)}k`, delta: "Taxa 5%", up: true, sub: "após plataforma", icon: TrendingUp },
       ]
     : [

@@ -10,6 +10,16 @@ const map: Record<string, string> = {
   "Concluído": "bg-success/10 text-success",
   "Em andamento": "bg-warning/15 text-warning",
   "Planejamento": "bg-secondary text-foreground",
+  "Aguardando pagamento": "bg-warning/15 text-warning",
+  "Pago em escrow": "bg-accent/10 text-accent",
+  "Entrega informada": "bg-accent/10 text-accent",
+  "Liberado": "bg-success/10 text-success",
+  "Reembolso solicitado": "bg-warning/15 text-warning",
+  "Reembolsado": "bg-secondary text-foreground",
+  "Em disputa": "bg-destructive/10 text-destructive",
+  "Cancelamento solicitado": "bg-warning/15 text-warning",
+  "Cancelamento aceito": "bg-success/10 text-success",
+  "Cancelamento recusado": "bg-destructive/10 text-destructive",
 };
 
 export function StatusBadge({ status }: { status: string }) {

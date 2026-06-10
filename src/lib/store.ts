@@ -51,6 +51,8 @@ export type Rfq = {
   process: string;
   material?: string;
   description?: string;
+  deliveryMode?: "Retirada" | "Envio";
+  deliveryAddress?: string;
   status: RfqStatus;
   createdAt: string;
   ownerEmail: string;
@@ -62,6 +64,9 @@ export type Proposal = {
   rfqId: string;
   supplier: string;
   price: number;
+  basePrice?: number;
+  freightValue?: number;
+  chargeFreight?: boolean;
   leadTimeDays: number;
   notes?: string;
   status: ProposalStatus;
@@ -72,10 +77,72 @@ export type Contract = {
   id: string;
   rfqId: string;
   proposalId: string;
+  buyerEmail?: string;
   supplier: string;
   value: number;
   startedAt: string;
   status: "Em execução" | "Concluído" | "Cancelado";
+  paymentStatus?: PaymentStatus;
+  paidAt?: string;
+  deliveryReportedAt?: string;
+  releasedAt?: string;
+  refundRequestedAt?: string;
+  refundedAt?: string;
+  disputedAt?: string;
+  refundReason?: string;
+  disputeReason?: string;
+  cancellationStatus?: "Solicitado" | "Aceito" | "Recusado";
+  cancellationRequestedAt?: string;
+  cancellationRespondedAt?: string;
+  cancellationReason?: string;
+  cancellationMessages?: ContractMessage[];
+  updatedAt?: string;
+};
+
+export type ContractMessage = {
+  authorRole: "buyer" | "supplier";
+  authorName: string;
+  body: string;
+  createdAt: string;
+};
+
+export type PaymentStatus = "Aguardando pagamento" | "Pago em escrow" | "Entrega informada" | "Liberado" | "Reembolso solicitado" | "Reembolsado" | "Em disputa";
+
+export type SupplierReceivingSettings = {
+  ownerEmail: string;
+  bankName: string;
+  agency: string;
+  account: string;
+  accountType: "Corrente" | "Poupanca" | "Pagamento";
+  document: string;
+  pixKey: string;
+  payoutMethod: "Pix" | "Transferencia bancaria";
+  verified: boolean;
+  updatedAt?: string;
+};
+
+export type BuyerPaymentSettings = {
+  ownerEmail: string;
+  defaultMethod: "Cartao" | "Pix" | "Boleto";
+  cardLabel: string;
+  billingDocument: string;
+  billingAddress: string;
+  pixEnabled: boolean;
+  boletoEnabled: boolean;
+  updatedAt?: string;
+};
+
+export type AddressSettings = {
+  ownerEmail: string;
+  label: string;
+  zipCode: string;
+  street: string;
+  number: string;
+  district: string;
+  city: string;
+  state: string;
+  complement?: string;
+  updatedAt?: string;
 };
 
 export type Project = {
@@ -135,6 +202,9 @@ export const K = {
   suppliers: "nf.suppliers",
   buyers: "nf.buyers",
   notifications: "nf.notifications",
+  supplierReceiving: "nf.supplierReceiving",
+  buyerPayments: "nf.buyerPayments",
+  addresses: "nf.addresses",
   users: "nf.users",
   session: "nf.session",
 } as const;
@@ -166,7 +236,7 @@ export function seedIfEmpty() {
   }
   if (!localStorage.getItem(K.contracts)) {
     const contracts: Contract[] = [
-      { id: "CT-1188", rfqId: "RFQ-2835", proposalId: "PRP-003", supplier: "Usinagem Vidal", value: 32100, startedAt: new Date().toISOString(), status: "Em execução" },
+      { id: "CT-1188", rfqId: "RFQ-2835", proposalId: "PRP-003", buyerEmail: "demo@nexforge.com", supplier: "Usinagem Vidal", value: 32100, startedAt: new Date().toISOString(), status: "Em execução", paymentStatus: "Pago em escrow", paidAt: new Date().toISOString() },
     ];
     write(K.contracts, contracts);
   }
@@ -226,6 +296,16 @@ export function seedIfEmpty() {
       })),
     );
   }
+  const rfqsWithDelivery = read<Rfq[]>(K.rfqs, []);
+  if (rfqsWithDelivery.some((r) => !r.deliveryMode)) {
+    write(
+      K.rfqs,
+      rfqsWithDelivery.map((r) => ({
+        ...r,
+        deliveryMode: r.deliveryMode ?? "Retirada",
+      })),
+    );
+  }
   const seededProjects = read<Project[]>(K.projects, []);
   if (seededProjects.some((p) => !p.ownerEmail || !p.ownerCompany || !p.ownerRole)) {
     write(
@@ -236,6 +316,21 @@ export function seedIfEmpty() {
         ownerCompany: p.ownerCompany ?? "NexForge Demo",
         ownerRole: p.ownerRole ?? "buyer",
       })),
+    );
+  }
+  const seededContracts = read<Contract[]>(K.contracts, []);
+  if (seededContracts.some((c) => !c.paymentStatus || !c.buyerEmail)) {
+    const rfqs = read<Rfq[]>(K.rfqs, []);
+    write(
+      K.contracts,
+      seededContracts.map((c) => {
+        const rfq = rfqs.find((r) => r.id === c.rfqId);
+        return {
+          ...c,
+          buyerEmail: c.buyerEmail ?? rfq?.ownerEmail ?? "demo@nexforge.com",
+          paymentStatus: c.paymentStatus ?? (c.status === "Concluído" ? "Liberado" : "Aguardando pagamento"),
+        };
+      }),
     );
   }
 }
