@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { AddressSettings, Buyer, K, useLocal } from "@/lib/store";
-import { MapPin } from "lucide-react";
 import { useMemo, useState } from "react";
 
 type RadiusFilter = "all" | "city" | "state";
@@ -87,16 +86,7 @@ export default function Compradores() {
         </div>
       </div>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-start gap-3">
-            <MapPin className="mt-0.5 h-4 w-4 text-accent" />
-            <div>
-              <p className="text-sm font-semibold">Busca por proximidade</p>
-              <p className="text-xs text-muted-foreground">{myAddress ? `${myAddress.city}/${myAddress.state}` : "Cadastre seu endereco em Configuracoes para usar filtros locais."}</p>
-            </div>
-          </div>
-        </div>
+      <section className="mb-6">
         <MapPreview title="Compradores filtrados" emptyMessage="Nenhum comprador filtrado com endereco localizado." points={mapPoints.length ? mapPoints : [{ id: "me", label: "Seu endereco", location: mapQuery }]} />
       </section>
 

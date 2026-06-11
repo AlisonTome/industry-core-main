@@ -144,7 +144,13 @@ export function MapPreview({ title = "Mapa", emptyMessage = "Nenhum ponto para e
         </div>
       )}
       {!large && (
-        <Button type="button" size="sm" variant="outline" className="absolute right-3 top-3 z-10 bg-background/95" onClick={() => setExpanded(true)}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="absolute right-4 top-4 z-[450] border-border bg-background text-foreground shadow-lg shadow-black/15 hover:bg-secondary"
+          onClick={() => setExpanded(true)}
+        >
           <Maximize2 className="mr-1 h-3.5 w-3.5" /> Expandir
         </Button>
       )}

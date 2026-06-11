@@ -53,9 +53,23 @@ export type Rfq = {
   description?: string;
   deliveryMode?: "Retirada" | "Envio";
   deliveryAddress?: string;
+  attachments?: RfqAttachment[];
   status: RfqStatus;
   createdAt: string;
   ownerEmail: string;
+};
+
+export type RfqAttachment = {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  extension: string;
+  category: "CAD" | "3D" | "Documento" | "Arquivo";
+  storageKey?: string;
+  storageStatus: "Registrado" | "Disponivel";
+  uploadedAt: string;
+  uploadedBy: string;
 };
 
 export type ProposalStatus = "Recebida" | "Aprovada" | "Recusada";

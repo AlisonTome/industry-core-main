@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { AddressSettings, getRfqProjectId, useLocal, K, Rfq, Proposal, Project, newId, pushNotification, visibleProjectsForUser, visibleRfqsForUser } from "@/lib/store";
+import { AddressSettings, getRfqProjectId, useLocal, K, Rfq, Proposal, Project, RfqAttachment, newId, pushNotification, visibleProjectsForUser, visibleRfqsForUser } from "@/lib/store";
 import { useAuth } from "@/contexts/AuthContext";
+import { saveRfqFiles } from "@/lib/rfq-files";
 import { toast } from "sonner";
 import { z } from "zod";
+import { FileText, UploadCloud, X } from "lucide-react";
 
 const PROCESSES = ["Usinagem CNC", "Caldeiraria", "Fundição", "Corte a laser", "Manufatura aditiva", "Tratamento térmico", "Solda"];
 const STATUSES = ["Todas", "Aberta", "Em análise", "Adjudicada", "Cancelada"] as const;
+
+const ACCEPTED_FILE_EXTENSIONS = [".step", ".stp", ".iges", ".igs", ".stl", ".obj", ".3mf", ".dwg", ".dxf", ".sldprt", ".sldasm", ".x_t", ".x_b", ".pdf", ".zip", ".rar", ".7z"];
+const MAX_ATTACHMENT_SIZE = 100 * 1024 * 1024;
+const MAX_ATTACHMENTS = 12;
 
 const rfqSchema = z.object({
   part: z.string().trim().min(3, "Descreva a peça").max(120),
@@ -39,6 +45,8 @@ export default function Rfqs() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("Todas");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const projectId = params.get("project") || "";
   const visibleProjects = useMemo(() => visibleProjectsForUser(projects, user), [projects, user]);
   const userAddress = addresses.find((a) => a.ownerEmail === user?.email);
@@ -71,10 +79,89 @@ export default function Rfqs() {
     setParams(params, { replace: true });
   }
 
-  function createRfq(data: Record<string, FormDataEntryValue>) {
+  function getFileExtension(fileName: string) {
+    const lastDot = fileName.lastIndexOf(".");
+    return lastDot >= 0 ? fileName.slice(lastDot).toLowerCase() : "";
+  }
+
+  function getAttachmentCategory(extension: string): RfqAttachment["category"] {
+    if ([".step", ".stp", ".iges", ".igs", ".dwg", ".dxf", ".sldprt", ".sldasm", ".x_t", ".x_b"].includes(extension)) return "CAD";
+    if ([".stl", ".obj", ".3mf"].includes(extension)) return "3D";
+    if (extension === ".pdf") return "Documento";
+    return "Arquivo";
+  }
+
+  function formatFileSize(size: number) {
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    if (size >= 1024) return `${Math.round(size / 1024)} KB`;
+    return `${size} B`;
+  }
+
+  function addFiles(files: FileList | null) {
+    if (!files?.length) return;
+    const currentKeys = new Set(selectedFiles.map((file) => `${file.name}:${file.size}`));
+    const next = [...selectedFiles];
+
+    for (const file of Array.from(files)) {
+      const extension = getFileExtension(file.name);
+      if (!ACCEPTED_FILE_EXTENSIONS.includes(extension)) {
+        toast.error(`${file.name}: formato nao permitido.`);
+        continue;
+      }
+      if (file.size > MAX_ATTACHMENT_SIZE) {
+        toast.error(`${file.name}: limite de 100 MB por arquivo.`);
+        continue;
+      }
+      const key = `${file.name}:${file.size}`;
+      if (!currentKeys.has(key) && next.length < MAX_ATTACHMENTS) {
+        currentKeys.add(key);
+        next.push(file);
+      }
+    }
+
+    if (next.length >= MAX_ATTACHMENTS && next.length < selectedFiles.length + files.length) {
+      toast.error(`Limite de ${MAX_ATTACHMENTS} arquivos por RFQ.`);
+    }
+
+    setSelectedFiles(next);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeFile(file: File) {
+    setSelectedFiles((files) => files.filter((item) => item !== file));
+  }
+
+  function buildAttachments(files: File[]): RfqAttachment[] {
+    return files.map((file, index) => {
+      const extension = getFileExtension(file.name);
+      return {
+        id: `ATT-${Date.now()}-${index + 1}`,
+        name: file.name,
+        size: file.size,
+        type: file.type || "application/octet-stream",
+        extension,
+        category: getAttachmentCategory(extension),
+        storageKey: `rfq:${file.name}:${Date.now()}:${index}`,
+        storageStatus: "Disponivel",
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: user!.email,
+      };
+    });
+  }
+
+  async function createRfq(data: Record<string, FormDataEntryValue>, files: File[]) {
     const parsed = rfqSchema.safeParse(data);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     const id = newId("RFQ");
+    const attachments = buildAttachments(files);
+    if (attachments.length) {
+      try {
+        await saveRfqFiles(id, attachments, files);
+      } catch {
+        toast.error("Nao foi possivel salvar os arquivos no navegador.");
+        return;
+      }
+    }
     const next: Rfq = {
       id,
       projectId: parsed.data.projectId && parsed.data.projectId !== "__none__" ? parsed.data.projectId : activeProjectId || undefined,
@@ -86,6 +173,7 @@ export default function Rfqs() {
       description: parsed.data.description,
       deliveryMode: parsed.data.deliveryMode,
       deliveryAddress: parsed.data.deliveryMode === "Envio" ? parsed.data.deliveryAddress || formattedAddress : undefined,
+      attachments,
       status: "Aberta",
       createdAt: new Date().toISOString(),
       ownerEmail: user!.email,
@@ -95,6 +183,7 @@ export default function Rfqs() {
     pushNotification({ title: "Nova RFQ disponível", body: `${id} - ${next.part}`, type: "info", recipientRole: "supplier" });
     toast.success(`RFQ ${id} criada`);
     setOpen(false);
+    setSelectedFiles([]);
   }
 
   return (
@@ -150,13 +239,13 @@ export default function Rfqs() {
         </table>
       </section>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setSelectedFiles([]); }}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova solicitação de cotação</DialogTitle>
             <DialogDescription>{selectedProject ? `Esta RFQ será vinculada ao projeto ${selectedProject.id}.` : "Preencha os dados técnicos. Você poderá anexar desenhos depois."}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); createRfq(Object.fromEntries(fd)); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); createRfq(Object.fromEntries(fd), selectedFiles); }} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="projectId">Projeto</Label>
               <Select name="projectId" defaultValue={activeProjectId || "__none__"}>
@@ -183,6 +272,49 @@ export default function Rfqs() {
               <div className="space-y-2"><Label htmlFor="material">Material</Label><Input id="material" name="material" placeholder="Ex.: Aço 4140" /></div>
             </div>
             <div className="space-y-2"><Label htmlFor="description">Observações</Label><Textarea id="description" name="description" rows={3} maxLength={1000} placeholder="Tolerâncias, acabamento, certificações..." /></div>
+            <div className="space-y-2">
+              <Label htmlFor="technicalFiles">Arquivos tecnicos</Label>
+              <input
+                ref={fileInputRef}
+                id="technicalFiles"
+                type="file"
+                multiple
+                className="sr-only"
+                accept={ACCEPTED_FILE_EXTENSIONS.join(",")}
+                onChange={(event) => addFiles(event.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-secondary/30 px-4 py-4 text-left transition hover:border-accent/60 hover:bg-accent/5"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
+                  <UploadCloud className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">Anexar desenhos e modelos</span>
+                  <span className="block text-xs text-muted-foreground">STEP, STP, IGES, STL, OBJ, DWG, DXF, SolidWorks, PDF ou compactados.</span>
+                </span>
+              </button>
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2 rounded-lg border border-border bg-surface p-3">
+                  {selectedFiles.map((file) => (
+                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-md bg-secondary/40 px-3 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{getAttachmentCategory(getFileExtension(file.name))} - {formatFileSize(file.size)}</p>
+                        </div>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeFile(file)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="deliveryMode">Logistica</Label>

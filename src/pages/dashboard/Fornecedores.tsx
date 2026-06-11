@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/dashboard/PageHeader";
 import { MapPoint, MapPreview } from "@/components/dashboard/MapPreview";
 import { useAuth } from "@/contexts/AuthContext";
 import { AddressSettings, useLocal, K, Supplier } from "@/lib/store";
-import { BadgeCheck, MapPin, Star } from "lucide-react";
+import { BadgeCheck, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMemo, useState } from "react";
@@ -83,16 +83,7 @@ export default function Fornecedores() {
         </div>
       </div>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-start gap-3">
-            <MapPin className="mt-0.5 h-4 w-4 text-accent" />
-            <div>
-              <p className="text-sm font-semibold">Busca por proximidade</p>
-              <p className="text-xs text-muted-foreground">{myAddress ? `${myAddress.city}/${myAddress.state}` : "Cadastre seu endereco em Configuracoes para usar filtros locais."}</p>
-            </div>
-          </div>
-        </div>
+      <section className="mb-6">
         <MapPreview title="Fornecedores filtrados" emptyMessage="Nenhum fornecedor filtrado com endereco localizado." points={mapPoints.length ? mapPoints : [{ id: "me", label: "Seu endereco", location: mapQuery }]} />
       </section>
 

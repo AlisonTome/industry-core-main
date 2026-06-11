@@ -6,10 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { downloadRfqAttachmentsZip } from "@/lib/rfq-files";
 import { useLocal, K, Rfq, Proposal, Contract, pushNotification, isRfqVisibleToUser } from "@/lib/store";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Check, MessageSquare, X } from "lucide-react";
+import { ArrowLeft, Check, Download, FileText, MessageSquare, Paperclip, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function RfqDetail() {
@@ -26,6 +27,7 @@ export default function RfqDetail() {
   const [responseTarget, setResponseTarget] = useState<Contract | null>(null);
   const [responseMessage, setResponseMessage] = useState("");
   const [chargeFreight, setChargeFreight] = useState(false);
+  const [downloadingFiles, setDownloadingFiles] = useState(false);
 
   const rfq = rfqs.find((r) => r.id === id && isRfqVisibleToUser(r, user));
   if (!rfq) return (
@@ -37,6 +39,26 @@ export default function RfqDetail() {
 
   const list = proposals.filter((p) => p.rfqId === rfq.id && (!isSupplier || p.supplier === user?.company));
   const contractForProposal = (proposalId: string) => contracts.find((c) => c.proposalId === proposalId);
+  const attachments = rfq.attachments ?? [];
+
+  function formatFileSize(size: number) {
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    if (size >= 1024) return `${Math.round(size / 1024)} KB`;
+    return `${size} B`;
+  }
+
+  async function downloadAllAttachments() {
+    if (!attachments.length) return;
+    setDownloadingFiles(true);
+    try {
+      await downloadRfqAttachmentsZip(rfq.id, attachments);
+      toast.success("Download dos arquivos iniciado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel baixar os arquivos.");
+    } finally {
+      setDownloadingFiles(false);
+    }
+  }
 
   function addProposal(data: { supplier: string; basePrice: number; freightValue: number; chargeFreight: boolean; leadTimeDays: number; notes?: string }) {
     const totalPrice = data.basePrice + (data.chargeFreight ? data.freightValue : 0);
@@ -206,6 +228,44 @@ export default function RfqDetail() {
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">{rfq.description}</p>
         </section>
       )}
+
+      <section className="mb-6 rounded-xl border border-border bg-surface p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <Paperclip className="h-4 w-4 text-accent" />
+            Arquivos tecnicos
+          </h3>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">{attachments.length} arquivo{attachments.length === 1 ? "" : "s"}</span>
+            {attachments.length > 0 && (
+              <Button type="button" size="sm" variant="outline" onClick={downloadAllAttachments} disabled={downloadingFiles}>
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                {downloadingFiles ? "Preparando..." : "Baixar ZIP"}
+              </Button>
+            )}
+          </div>
+        </div>
+        {attachments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum arquivo tecnico anexado.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {attachments.map((attachment) => (
+              <div key={attachment.id} className="flex min-w-0 items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-background text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{attachment.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {attachment.category} - {attachment.extension.replace(".", "").toUpperCase()} - {formatFileSize(attachment.size)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{attachment.storageStatus}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="min-w-0 rounded-xl border border-border bg-surface">
         <header className="flex items-center justify-between border-b border-border px-5 py-4">
